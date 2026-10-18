@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import express,{NextFunction,Request,Response} from 'express';
 import cors from 'cors'; import helmet from 'helmet'; import cookieParser from 'cookie-parser'; import {rateLimit} from 'express-rate-limit';
 import {createHmac,randomBytes,randomUUID} from 'node:crypto'; import argon2 from 'argon2';
@@ -6,22 +5,25 @@ import {z,ZodError} from 'zod'; import {prisma} from './db.js';
 import {Role,Prisma} from '../generated/prisma/index.js';
 import {feeBalance,feeStatus as classifyFeeStatus,validLeaveRange} from './rules.js';
 import {createAllowedOrigins} from './origin-policy.js';
+import {DEVELOPMENT_SESSION_SECRET,isStrongSessionSecret} from './session-secret.js';
 
 declare global { namespace Express { interface Request { user?: {id:string;name:string;username:string;role:Role}; sessionId?:string } } }
 const app=express();
+const isProduction=process.env.NODE_ENV==='production'||process.env.VERCEL==='1';
 const feeOverdueGraceDays=Number(process.env.FEE_OVERDUE_GRACE_DAYS??7);
 if(!Number.isInteger(feeOverdueGraceDays)||feeOverdueGraceDays<0||feeOverdueGraceDays>3650)throw new Error('FEE_OVERDUE_GRACE_DAYS must be an integer from 0 to 3650.');
 const feeStatus=(balance:number,dueDate:Date,now=new Date(),paid=0)=>classifyFeeStatus(balance,dueDate,now,paid,feeOverdueGraceDays);
-const allowedOrigins=createAllowedOrigins(process.env.NODE_ENV,process.env.CLIENT_ORIGIN);
+const allowedOrigins=createAllowedOrigins(isProduction?'production':process.env.NODE_ENV,process.env.CLIENT_ORIGIN);
 app.use(helmet()); app.use(cors({origin:(requestOrigin,callback)=>callback(null,!requestOrigin||allowedOrigins.has(requestOrigin)),credentials:true})); app.use(express.json({limit:'64kb'})); app.use(cookieParser());
 const protect=(...allowed:Role[])=>(req:Request,res:Response,next:NextFunction)=>{if(!req.user)return next(fail(401,'Please sign in.'));if(!allowed.includes(req.user.role))return next(fail(403,'You do not have permission to perform this action.'));next()};
-if(process.env.NODE_ENV==='production'&&(!process.env.SESSION_SECRET||process.env.SESSION_SECRET.length<32))throw new Error('SESSION_SECRET must be set to at least 32 characters in production.');
-const hash=(s:string)=>createHmac('sha256',process.env.SESSION_SECRET??'hms-development-only-change-before-deployment').update(s).digest('hex');
+if(isProduction&&!isStrongSessionSecret(process.env.SESSION_SECRET))throw new Error('SESSION_SECRET must be at least 32 characters with at least 16 distinct characters and sufficient entropy in production.');
+const hash=(s:string)=>createHmac('sha256',process.env.SESSION_SECRET??DEVELOPMENT_SESSION_SECRET).update(s).digest('hex');
+const sessionCookieOptions={httpOnly:true,secure:isProduction,sameSite:isProduction?'none':'lax',path:'/'} as const;
 const fail=(status:number,message:string)=>Object.assign(new Error(message),{status});
 const asyncRoute=(fn:(req:Request,res:Response)=>Promise<unknown>)=>(req:Request,res:Response,next:NextFunction)=>Promise.resolve(fn(req,res)).catch(next);
 const parse=<T extends z.ZodTypeAny>(schema:T,body:unknown):z.infer<T>=>schema.parse(body);
 app.use('/api/v1',(req,_res,next)=>{const originHeader=req.get('origin');if(originHeader&&!allowedOrigins.has(originHeader))return next(fail(403,'Request origin is not allowed.'));next()});
-function requireAuth(req:Request,res:Response,next:NextFunction){void (async()=>{try{const token=req.cookies?.hms_session;if(!token){next(fail(401,'Please sign in.'));return}const session=await prisma.session.findUnique({where:{tokenHash:hash(token)},include:{user:true}});if(!session||session.expiresAt<=new Date()||!session.user.active){if(session)await prisma.session.delete({where:{id:session.id}});next(fail(401,'Your session has expired. Please sign in again.'));return}const idle=Number(process.env.SESSION_IDLE_MINUTES??15)*60_000;if(Date.now()-session.lastActivity.getTime()>idle){await prisma.session.delete({where:{id:session.id}});next(fail(401,'Your session has expired. Please sign in again.'));return}const now=new Date();await prisma.session.update({where:{id:session.id},data:{lastActivity:now,expiresAt:new Date(now.getTime()+idle)}});res.cookie('hms_session',token,{httpOnly:true,secure:process.env.NODE_ENV==='production',sameSite:'lax',path:'/',maxAge:idle});req.user={id:session.user.id,name:session.user.name,username:session.user.username,role:session.user.role};req.sessionId=session.id;next()}catch(e){next(e)}})()}
+function requireAuth(req:Request,res:Response,next:NextFunction){void (async()=>{try{const token=req.cookies?.hms_session;if(!token){next(fail(401,'Please sign in.'));return}const session=await prisma.session.findUnique({where:{tokenHash:hash(token)},include:{user:true}});if(!session||session.expiresAt<=new Date()||!session.user.active){if(session)await prisma.session.delete({where:{id:session.id}});next(fail(401,'Your session has expired. Please sign in again.'));return}const idle=Number(process.env.SESSION_IDLE_MINUTES??15)*60_000;if(Date.now()-session.lastActivity.getTime()>idle){await prisma.session.delete({where:{id:session.id}});next(fail(401,'Your session has expired. Please sign in again.'));return}const now=new Date();await prisma.session.update({where:{id:session.id},data:{lastActivity:now,expiresAt:new Date(now.getTime()+idle)}});res.cookie('hms_session',token,{...sessionCookieOptions,maxAge:idle});req.user={id:session.user.id,name:session.user.name,username:session.user.username,role:session.user.role};req.sessionId=session.id;next()}catch(e){next(e)}})()}
 app.use('/api/v1/auth/login',rateLimit({windowMs:60_000,limit:10,standardHeaders:true,legacyHeaders:false}));
 app.use('/api/v1/auth/logout',rateLimit({windowMs:60_000,limit:30,standardHeaders:true,legacyHeaders:false}));
 app.get('/api/v1/health',(_req,res)=>res.json({status:'ok'}));
@@ -33,10 +35,10 @@ app.post('/api/v1/auth/login',asyncRoute(async(req,res)=>{
  const ok=await argon2.verify(user.passwordHash,password).catch(()=>false);
  if(!ok){const count=user.failedLoginCount+1,lock=count>=5?new Date(Date.now()+Number(process.env.LOGIN_LOCK_MINUTES??15)*60_000):null;await prisma.user.update({where:{id:user.id},data:{failedLoginCount:count,lockedUntil:lock}});throw fail(401,generic)}
  await prisma.user.update({where:{id:user.id},data:{failedLoginCount:0,lockedUntil:null}});const token=randomBytes(32).toString('hex');const minutes=Number(process.env.SESSION_IDLE_MINUTES??15);await prisma.session.create({data:{tokenHash:hash(token),userId:user.id,expiresAt:new Date(Date.now()+minutes*60_000)}});
- res.cookie('hms_session',token,{httpOnly:true,secure:process.env.NODE_ENV==='production',sameSite:'lax',path:'/',maxAge:minutes*60_000});res.json({user:{id:user.id,name:user.name,username:user.username,role:user.role}})
+ res.cookie('hms_session',token,{...sessionCookieOptions,maxAge:minutes*60_000});res.json({user:{id:user.id,name:user.name,username:user.username,role:user.role}})
 }));
 // Logout must work for valid, expired and already-invalidated sessions so stale cookies can be cleared.
-app.post('/api/v1/auth/logout',asyncRoute(async(req,res)=>{const token=req.cookies?.hms_session;if(token)await prisma.session.deleteMany({where:{tokenHash:hash(token)}});res.clearCookie('hms_session',{httpOnly:true,secure:process.env.NODE_ENV==='production',sameSite:'lax',path:'/'});res.json({ok:true})}));
+app.post('/api/v1/auth/logout',asyncRoute(async(req,res)=>{const token=req.cookies?.hms_session;if(token)await prisma.session.deleteMany({where:{tokenHash:hash(token)}});res.clearCookie('hms_session',sessionCookieOptions);res.json({ok:true})}));
 app.use('/api/v1',rateLimit({windowMs:60_000,limit:300,standardHeaders:true,legacyHeaders:false}));
 app.use('/api/v1',requireAuth);
 app.get('/api/v1/auth/me',(req,res)=>res.json({user:req.user}));

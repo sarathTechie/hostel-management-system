@@ -1,2 +1,4 @@
-import 'dotenv/config'; import {app} from './app.js';
-const port=Number(process.env.PORT??4000);app.listen(port,()=>console.log(`HMS API listening on http://localhost:${port}`));
+import {app} from './app.js';
+
+export {app};
+export default app;
