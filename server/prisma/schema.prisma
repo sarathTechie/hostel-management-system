@@ -1,0 +1,330 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  ACCOUNTANT
+  STUDENT
+}
+
+enum BedStatus {
+  VACANT
+  OCCUPIED
+  MAINTENANCE
+}
+
+enum ComplaintStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PaymentMode {
+  CASH
+  BANK_TRANSFER
+  UPI
+  CHEQUE
+  OTHER
+}
+
+model User {
+  id               String     @id @default(cuid())
+  username         String     @unique
+  passwordHash     String
+  name             String
+  role             Role
+  active           Boolean    @default(true)
+  failedLoginCount Int        @default(0)
+  lockedUntil      DateTime?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  student          Student?
+  sessions         Session[]
+  auditEvents      AuditLog[]
+  notices          Notice[]
+  messMenus        MessMenu[]
+  decidedLeaves    LeaveRequest[] @relation("LeaveDecision")
+  notifications    Notification[]
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  tokenHash    String   @unique
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  lastActivity DateTime @default(now())
+  expiresAt    DateTime
+
+  @@index([userId, expiresAt])
+}
+
+model Student {
+  id              String         @id @default(cuid())
+  userId          String         @unique
+  user            User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  rollNumber      String         @unique
+  course          String
+  department      String
+  contactNumber   String
+  email           String
+  guardianName    String
+  guardianContact String
+  createdAt       DateTime       @default(now())
+  allocations     Allocation[]
+  feeDues         FeeDue[]
+  complaints      Complaint[]
+  visitors        Visitor[]
+  leaveRequests   LeaveRequest[]
+  feedback        MessFeedback[]
+
+  @@index([rollNumber, department])
+}
+
+model HostelBlock {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  floors    Floor[]
+  rooms     Room[]
+  createdAt DateTime @default(now())
+}
+
+model Floor {
+  id      String      @id @default(cuid())
+  name    String
+  blockId String
+  block   HostelBlock @relation(fields: [blockId], references: [id], onDelete: Restrict)
+  rooms   Room[]
+
+  @@unique([blockId, name])
+}
+
+model Room {
+  id         String      @id @default(cuid())
+  roomNumber String
+  blockId    String
+  floorId    String?
+  block      HostelBlock @relation(fields: [blockId], references: [id], onDelete: Restrict)
+  floor      Floor?      @relation(fields: [floorId], references: [id], onDelete: SetNull)
+  beds       Bed[]
+
+  @@unique([blockId, roomNumber])
+  @@index([blockId, floorId])
+}
+
+model Bed {
+  id          String       @id @default(cuid())
+  bedNumber   String
+  roomId      String
+  status      BedStatus    @default(VACANT)
+  room        Room         @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  allocations Allocation[]
+
+  @@unique([roomId, bedNumber])
+  @@index([status, roomId])
+}
+
+model Allocation {
+  id          String    @id @default(cuid())
+  studentId   String
+  bedId       String
+  allocatedAt DateTime  @default(now())
+  vacatedAt   DateTime?
+  student     Student   @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  bed         Bed       @relation(fields: [bedId], references: [id], onDelete: Restrict)
+
+  @@index([studentId, vacatedAt])
+  @@index([bedId, vacatedAt])
+}
+
+model FeeStructure {
+  id        String   @id @default(cuid())
+  head      String
+  amount    Decimal  @db.Decimal(12, 2)
+  dueDate   DateTime
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  dues      FeeDue[]
+
+  @@index([active, dueDate])
+}
+
+model FeeDue {
+  id          String       @id @default(cuid())
+  studentId   String
+  structureId String
+  amount      Decimal      @db.Decimal(12, 2)
+  dueDate     DateTime
+  createdAt   DateTime     @default(now())
+  student     Student      @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  structure   FeeStructure @relation(fields: [structureId], references: [id], onDelete: Restrict)
+  payments    Payment[]
+
+  @@unique([studentId, structureId])
+  @@index([dueDate, studentId])
+}
+
+model Payment {
+  id            String      @id @default(cuid())
+  feeDueId      String
+  amount        Decimal     @db.Decimal(12, 2)
+  mode          PaymentMode
+  receiptNumber String      @unique
+  paidAt        DateTime    @default(now())
+  note          String?
+  feeDue        FeeDue      @relation(fields: [feeDueId], references: [id], onDelete: Restrict)
+
+  @@index([feeDueId, paidAt])
+}
+
+model Complaint {
+  id           String                   @id @default(cuid())
+  ticketNumber String                   @unique
+  studentId    String
+  category     String
+  description  String
+  location     String
+  status       ComplaintStatus          @default(OPEN)
+  resolvedAt   DateTime?
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+  student      Student                  @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  history      ComplaintStatusHistory[]
+
+  @@index([status, category, createdAt])
+}
+
+model ComplaintStatusHistory {
+  id          String          @id @default(cuid())
+  complaintId String
+  status      ComplaintStatus
+  remarks     String?
+  createdAt   DateTime        @default(now())
+  complaint   Complaint       @relation(fields: [complaintId], references: [id], onDelete: Restrict)
+
+  @@index([complaintId, createdAt])
+}
+
+model Visitor {
+  id            String    @id @default(cuid())
+  studentId     String
+  name          String
+  contactNumber String
+  purpose       String
+  entryAt       DateTime  @default(now())
+  exitAt        DateTime?
+  student       Student   @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  @@index([entryAt, exitAt])
+  @@index([studentId, entryAt])
+}
+
+model LeaveRequest {
+  id        String      @id @default(cuid())
+  studentId String
+  reason    String
+  fromAt    DateTime
+  toAt      DateTime
+  status    LeaveStatus @default(PENDING)
+  remark    String?
+  createdAt DateTime    @default(now())
+  decidedAt DateTime?
+  decidedById String?
+  student   Student     @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  decidedBy User?       @relation("LeaveDecision", fields: [decidedById], references: [id], onDelete: SetNull)
+
+  @@index([status, fromAt, toAt])
+  @@index([studentId, createdAt])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  href      String?
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+}
+
+model MessMenu {
+  id          String          @id @default(cuid())
+  weekStart   DateTime
+  published   Boolean         @default(false)
+  createdById String
+  createdAt   DateTime        @default(now())
+  createdBy   User            @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  entries     MessMenuEntry[]
+
+  @@unique([weekStart])
+}
+
+model MessMenuEntry {
+  id       String         @id @default(cuid())
+  menuId   String
+  date     DateTime
+  meal     String
+  items    String
+  menu     MessMenu       @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  feedback MessFeedback[]
+
+  @@unique([menuId, date, meal])
+  @@index([date, meal])
+}
+
+model MessFeedback {
+  id          String        @id @default(cuid())
+  studentId   String
+  menuEntryId String
+  rating      Int
+  comment     String?
+  createdAt   DateTime      @default(now())
+  student     Student       @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  menuEntry   MessMenuEntry @relation(fields: [menuEntryId], references: [id], onDelete: Restrict)
+
+  @@unique([studentId, menuEntryId])
+  @@index([createdAt, rating])
+}
+
+model Notice {
+  id          String    @id @default(cuid())
+  title       String
+  description String
+  publishAt   DateTime
+  expiresAt   DateTime?
+  createdById String
+  createdAt   DateTime  @default(now())
+  createdBy   User      @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([publishAt, expiresAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  action    String
+  entity    String
+  entityId  String?
+  details   Json?
+  createdAt DateTime @default(now())
+  actor     User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt, action])
+  @@index([actorId, createdAt])
+}

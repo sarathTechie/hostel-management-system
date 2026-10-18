@@ -1,0 +1,52 @@
+.notification-list {
+  overflow: hidden;
+}
+
+.notification-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.notification-item:last-child {
+  border-bottom: 0;
+}
+
+.notification-item.unread {
+  background: #f6fbfa;
+  box-shadow: inset 3px 0 var(--accent);
+}
+
+.notification-item h2 {
+  margin: 0;
+  color: #243348;
+  font-size: 13px;
+}
+
+.notification-item p {
+  margin: 6px 0;
+  color: #536174;
+  font-size: 12px;
+}
+
+.notification-item time {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.notification-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex: none;
+  font-size: 11px;
+}
+
+@media (max-width: 560px) {
+  .notification-item {
+    flex-direction: column;
+  }
+}

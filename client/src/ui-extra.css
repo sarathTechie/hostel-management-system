@@ -1,0 +1,33 @@
+.page-actions{display:flex;gap:8px}.row-actions{white-space:normal;min-width:130px}.row-actions .text-action{display:inline-block;margin:2px}.report-filters{display:grid;gap:8px;margin:14px 0}.report-filters label{display:flex;align-items:center;justify-content:space-between;gap:9px;color:#708092;font-size:10px}.report-filters select,.report-filters input{height:30px;max-width:150px;width:100%;border:1px solid #e0e5e9;border-radius:5px;padding:0 7px;color:#526176;font-size:10px;background:#fff}.my-room-card{max-width:680px;padding:26px}.my-room-icon{display:grid;place-items:center;width:48px;height:48px;border-radius:12px;background:#eaf5f2;color:#327d73;margin-bottom:19px}.my-room-card .eyebrow{color:#4a8c83;margin:0 0 8px}.my-room-card h2{font:700 23px 'Segoe UI',Arial;color:#243449;margin:0 0 22px}.my-room-details{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid #edf0f2;padding-top:17px;gap:10px}.my-room-details div{display:grid;gap:6px}.my-room-details small{color:#8592a1;font-size:10px}.my-room-details b{color:#35475c;font-size:12px}.bed-chip:disabled{opacity:1;cursor:default;border:0}
+.sort-head{border:0;background:transparent;color:inherit;font:inherit;text-transform:inherit;letter-spacing:inherit;padding:0}.pagination{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;color:#82909f;font-size:10px;border-top:1px solid #edf0f2}.pagination>div{display:flex;gap:6px}.pagination .secondary{height:29px;font-size:10px}.pagination button:disabled{opacity:.45;cursor:default}.feedback-summary{display:block;color:#718292;font-size:9px;padding:2px 0}
+@media(max-width:700px){.page-actions{width:100%}.page-actions button{flex:1}.my-room-details{grid-template-columns:repeat(2,1fr);row-gap:18px}}
+.sidebar nav a[aria-current="page"]{background:#ffffff18;color:#fff;font-weight:650;box-shadow:inset 3px 0 #57b3a8}
+.sidebar nav a:focus-visible,.account-toggle:focus-visible,.logout-action:focus-visible,.primary:focus-visible,.secondary:focus-visible,.text-action:focus-visible{outline:3px solid #76c6bb;outline-offset:2px}
+.account-menu{position:relative}
+.account-toggle{display:flex;align-items:center;gap:9px;min-height:38px;padding:4px 9px;border:1px solid #e5e9ed;border-radius:7px;background:#fff;color:#38485c;text-align:left}
+.account-toggle:hover{background:#f8fbfa;border-color:#c9ddda}
+.account-toggle-copy{display:grid;gap:2px;min-width:0}
+.account-toggle-copy b{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#34455a;font-size:11px}
+.account-toggle-copy small{color:#8491a0;font-size:9px}
+.account-dropdown{position:absolute;z-index:30;right:0;top:calc(100% + 8px);width:230px;padding:7px;border:1px solid #e4e9ed;border-radius:9px;background:#fff;box-shadow:0 12px 32px #12253c24}
+.account-summary{display:grid;gap:3px;padding:9px 10px 11px;border-bottom:1px solid #edf0f2}
+.account-summary b{color:#25364a;font-size:12px}
+.account-summary small{color:#8591a0;font-size:10px}
+.logout-action{display:flex;align-items:center;gap:9px;width:100%;margin-top:5px;padding:9px 10px;border:0;border-radius:6px;background:#fff;color:#9a3e3e;text-align:left;font-size:11px}
+.logout-action:hover{background:#fff4f3}
+.logout-action:disabled{opacity:.6;cursor:wait}
+.logout-error{margin:7px 8px;color:#a13a3a;font-size:10px;line-height:1.5}
+.auth-error{max-width:480px;padding:28px}
+.auth-error h1,.not-found h1{margin:0 0 10px;color:#243449;font-size:21px}
+.auth-error p,.not-found .muted{margin:0 0 18px;line-height:1.6}
+.not-found{max-width:550px;margin:60px auto;padding:35px;text-align:center}
+.not-found .empty-icon{margin:0 auto 16px}
+.not-found .eyebrow{color:#43877f}
+.not-found .primary{display:inline-flex;padding:0 14px}
+.field-error{display:block;color:#ad4141;font-size:10px;margin-top:5px}
+.modal .alert{margin:0 0 12px}
+.meal-cell{min-width:260px;white-space:normal;line-height:1.5}
+.meal-cell details{margin:2px 0}
+.meal-cell summary{cursor:pointer;color:#46576b;font-size:10px}
+.meal-cell p{margin:3px 0 6px;color:#758294;font-size:10px}
+@media(max-width:700px){.top-user{gap:7px}.account-toggle{padding:3px 5px;border-color:transparent;background:transparent}.account-toggle-copy{display:none}.account-dropdown{position:fixed;top:55px;right:10px}.account-toggle .avatar{margin:0}.profile{gap:8px}}
