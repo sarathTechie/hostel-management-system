@@ -47,6 +47,23 @@ npx prisma migrate deploy --schema prisma/schema.prisma
 
 This command does not reset the database or seed it. Do not run `prisma migrate reset` or seed demo data in production. Never put database credentials in source control or build logs.
 
+### Bootstrap the three demo accounts once
+
+The general-purpose `prisma/seed.ts` creates demonstration students and other sample records; do not use it for production account setup. To create/update only `ADM001` (Admin), `STU001` (Student), and `ACC001` (Accountant), run the separate `prisma/bootstrap-demo-accounts.mjs` script manually from a trusted local checkout. It does not run during a Vercel build.
+
+Create a temporary environment file **outside the repository** containing `DATABASE_URL`, `HMS_BOOTSTRAP_ADMIN_PASSWORD`, `HMS_BOOTSTRAP_STUDENT_PASSWORD`, and `HMS_BOOTSTRAP_ACCOUNTANT_PASSWORD`. Use the passwords you intend to set; do not put them in shell command arguments, source files, or logs. Restrict the file to your account. The script requires a Neon PostgreSQL URL with TLS, hashes the three passwords with Argon2id, and transactionally upserts only those usernames. It rejects an existing account whose role does not match the intended role. For existing users, it updates the password hash, expected role, active status, and login lockout fields while preserving their existing display name. It does not create student profiles or any other demo data.
+
+From the `server` directory in PowerShell, with the temporary file path assigned to `$bootstrapEnv`, run:
+
+```powershell
+npx prisma generate --schema prisma/schema.prisma
+npx dotenv -e $bootstrapEnv -- node prisma/bootstrap-demo-accounts.mjs
+```
+
+Prisma generation is local and does not connect to or modify the database. The second command is the only command above that changes database rows. Review the script first, verify the temporary file points to the intended Neon database, run it once, and securely remove the temporary file afterward. The script is not invoked by the build or deployment pipeline.
+
+This creates user login records only. If `STU001` has no related `Student` profile, student-specific HMS pages will still report a missing profile; this account bootstrap deliberately does not create one.
+
 ## Environment variables
 
 - `DATABASE_URL`: PostgreSQL connection string.
