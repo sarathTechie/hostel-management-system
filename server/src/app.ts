@@ -11,6 +11,7 @@ import {DEVELOPMENT_SESSION_SECRET,isStrongSessionSecret} from './session-secret
 declare global { namespace Express { interface Request { user?: {id:string;name:string;username:string;role:Role}; sessionId?:string } } }
 const app=express();
 const isProduction=process.env.NODE_ENV==='production'||process.env.VERCEL==='1';
+if(process.env.VERCEL==='1')app.set('trust proxy',1);
 const feeOverdueGraceDays=Number(process.env.FEE_OVERDUE_GRACE_DAYS??7);
 if(!Number.isInteger(feeOverdueGraceDays)||feeOverdueGraceDays<0||feeOverdueGraceDays>3650)throw new Error('FEE_OVERDUE_GRACE_DAYS must be an integer from 0 to 3650.');
 const feeStatus=(balance:number,dueDate:Date,now=new Date(),paid=0)=>classifyFeeStatus(balance,dueDate,now,paid,feeOverdueGraceDays);
