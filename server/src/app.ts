@@ -1,5 +1,5 @@
 import express,{NextFunction,Request,Response} from 'express';
-import cors from 'cors'; import * as helmetModule from 'helmet'; import cookieParser from 'cookie-parser'; import {rateLimit} from 'express-rate-limit';
+import cors from 'cors'; import helmet from 'helmet'; import cookieParser from 'cookie-parser'; import {rateLimit} from 'express-rate-limit';
 import {createHmac,randomBytes,randomUUID} from 'node:crypto'; import argon2 from 'argon2';
 import {z,ZodError} from 'zod'; import {prisma} from './db.js';
 import {Role,Prisma} from '../generated/prisma/index.js';
@@ -14,7 +14,7 @@ const feeOverdueGraceDays=Number(process.env.FEE_OVERDUE_GRACE_DAYS??7);
 if(!Number.isInteger(feeOverdueGraceDays)||feeOverdueGraceDays<0||feeOverdueGraceDays>3650)throw new Error('FEE_OVERDUE_GRACE_DAYS must be an integer from 0 to 3650.');
 const feeStatus=(balance:number,dueDate:Date,now=new Date(),paid=0)=>classifyFeeStatus(balance,dueDate,now,paid,feeOverdueGraceDays);
 const allowedOrigins=createAllowedOrigins(isProduction?'production':process.env.NODE_ENV,process.env.CLIENT_ORIGIN);
-app.use(helmetModule.default()); app.use(cors({origin:(requestOrigin,callback)=>callback(null,!requestOrigin||allowedOrigins.has(requestOrigin)),credentials:true})); app.use(express.json({limit:'64kb'})); app.use(cookieParser());
+app.use(helmet()); app.use(cors({origin:(requestOrigin,callback)=>callback(null,!requestOrigin||allowedOrigins.has(requestOrigin)),credentials:true})); app.use(express.json({limit:'64kb'})); app.use(cookieParser());
 const protect=(...allowed:Role[])=>(req:Request,res:Response,next:NextFunction)=>{if(!req.user)return next(fail(401,'Please sign in.'));if(!allowed.includes(req.user.role))return next(fail(403,'You do not have permission to perform this action.'));next()};
 if(isProduction&&!isStrongSessionSecret(process.env.SESSION_SECRET))throw new Error('SESSION_SECRET must be at least 32 characters with at least 16 distinct characters and sufficient entropy in production.');
 const hash=(s:string)=>createHmac('sha256',process.env.SESSION_SECRET??DEVELOPMENT_SESSION_SECRET).update(s).digest('hex');
