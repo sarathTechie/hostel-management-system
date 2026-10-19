@@ -213,3 +213,4 @@ app.use((err:unknown,_req:Request,res:Response,_next:NextFunction)=>{
  res.status(e.status??500).json({error:e.status?(e.message??'Request failed.'): 'An unexpected error occurred.'});
 });
 export {app};
+export default app;
