@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "cd .. && npm ci --workspace @hms/server --include=dev",
   "buildCommand": "npm run build",
   "functions": {
     "src/index.ts": {
